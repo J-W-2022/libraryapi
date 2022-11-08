@@ -9,17 +9,14 @@ import { tap } from 'rxjs/operators';
 export class AuthService {
 
   apiUrl: string;
-  isAuthenticated: boolean;
   currentMember: Member = null;
+  private loggedIn = new BehaviorSubject<boolean>(false);
 
   constructor(private http: HttpClient) {
     this.apiUrl = `${environment.apiUrl}${environment.apiPath}/members`;
-    this.isAuthenticated = false;
   }
 
-  private loggedIn = new BehaviorSubject<boolean>(false);
-
-  get isLoggedIn() {
+  get isLoggedIn(): Observable<boolean> {
     return this.loggedIn.asObservable();
   }
 
@@ -27,15 +24,14 @@ export class AuthService {
     return this.http.get<Member>(`${this.apiUrl}/${memberId}`)
       .pipe(
         tap(res => {
-          this.isAuthenticated = res !== null;
+          this.loggedIn.next(res !== null);
           this.currentMember = res;
         })
       );
   }
 
   logout(): void {
-    this.isAuthenticated = false;
     this.currentMember = null;
+    this.loggedIn.next(false);
   }
-
 }
