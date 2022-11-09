@@ -3,8 +3,10 @@
 // `ng build --env=prod` then `environment.prod.ts` will be used instead.
 // The list of which env maps to which file can be found in `.angular-cli.json`.
 
+//apiUrl: 'https://aka-library-api.azurewebsites.net/',
+
 export const environment = {
-  production: false,
-  apiUrl: 'https://aka-library-api.azurewebsites.net/',
+  production: false,  
+  apiUrl: 'http://localhost:51721/',  
   apiPath: 'api'
 };

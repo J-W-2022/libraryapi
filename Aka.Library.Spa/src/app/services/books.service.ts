@@ -66,9 +66,9 @@ export class BooksService {
    * @returns {Observable<number>}
    * @memberof BooksService
    */
-  getNumberOfAvailableBookCopies(libraryId: number, bookId: number): Observable<number> {
-    // TODO: Add implementation
-    return throwError('Not Implemented');
+  getNumberOfAvailableBookCopies(libraryId: number, bookId: number): Observable<number> {  
+    const url = `${this.apiUrl}${libraryId}/books/${bookId}/countavailable`;
+    return this.http.get<number>(url);
   }
 
   checkOutBook(libraryId: number, bookId: number, memberId: number): Observable<SignedOutBook> {

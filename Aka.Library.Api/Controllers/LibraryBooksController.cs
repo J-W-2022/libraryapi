@@ -36,17 +36,7 @@ namespace Aka.Library.Api.Controllers
             var books = from bt in db.BookTitle
                         join lb in db.LibraryBook on bt.BookId equals lb.BookId into libraryBook
                         from lb in libraryBook
-                        join signs in (
-                                from bso in db.BookSignedOut
-                                where bso.WhenReturned == null
-                                group bso by bso.LibraryBookSid
-                                into checkOuts
-                                select new
-                                {
-                                    LibraryBookSId = checkOuts.Key,
-                                    Count = (int?)checkOuts.Count()
-                                }
-                            )
+                        join signs in LibraryBookSignedOutCounts
                             on lb.LibraryBookSid equals signs.LibraryBookSId into booksSignOutsOuter
                         from signs in booksSignOutsOuter.DefaultIfEmpty()
                         where lb.LibraryId == libraryId && lb.TotalPurchasedByLibrary > (signs.Count ?? 0)
@@ -65,20 +55,40 @@ namespace Aka.Library.Api.Controllers
         {
             var checkOutBooks =
                 (from bso in db.BookSignedOut
-                    join lbs in db.LibraryBook on bso.LibraryBookSid equals lbs.LibraryBookSid into libraryBooks
-                    from lb in libraryBooks
-                    where bso.WhenReturned == null && lb.LibraryId == libraryId
-                    group lb by lb.Book.Isbn
+                 join lbs in db.LibraryBook on bso.LibraryBookSid equals lbs.LibraryBookSid into libraryBooks
+                 from lb in libraryBooks
+                 where bso.WhenReturned == null && lb.LibraryId == libraryId
+                 group lb by lb.Book.Isbn
                     into checkOuts
-                    select new
-                    {
-                        BookId = checkOuts.Key,
-                        Book = checkOuts.Select(g => g.Book),
-                        BookCount = checkOuts.Count()
-                    }).ToDictionary(k=> k.BookId, v=> v.Book);
+                 select new
+                 {
+                     BookId = checkOuts.Key,
+                     Book = checkOuts.Select(g => g.Book),
+                     BookCount = checkOuts.Count()
+                 }).ToDictionary(k => k.BookId, v => v.Book);
 
             var books = checkOutBooks.SelectMany(o => o.Value);
             return books;
+        }
+
+        /// <summary>
+        /// Gets the count of a particular book at a specific library available for checkout.
+        /// </summary>
+        /// <param name="libraryId">Library Id</param>
+        /// <param name="bookId">The book to get the count for.</param>
+        /// <returns>A count of <paramref name="bookId">Book<paramref name="bookId"/> available for checkout.</returns>
+        /// <remarks>Invalid <paramref name="libraryId"/> or <paramref name="bookId"/> will return 0.</remarks>
+        [HttpGet("{bookId:int}/countavailable")]
+        public int GetLibraryBookCountAvailable(int libraryId, int bookId)
+        {
+            var countAvailable = from lb in db.LibraryBook
+                                 join signs in LibraryBookSignedOutCounts
+                                 on lb.LibraryBookSid equals signs.LibraryBookSId into booksSignOutsOuter
+                                 from signs in booksSignOutsOuter.DefaultIfEmpty()
+                                 where lb.LibraryId == libraryId && lb.BookId == bookId
+                                 select lb.TotalPurchasedByLibrary - (signs.Count ?? 0);
+
+            return countAvailable.FirstOrDefault();
         }
 
         // POST: api/LibraryBooks
@@ -139,6 +149,31 @@ namespace Aka.Library.Api.Controllers
                 db.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        /// <summary>
+        /// Gets a collection of counts of all signed out books across all <see cref="Library">Libraries</see>.
+        /// </summary>
+        private IQueryable<LibraryBookSignedOutCount> LibraryBookSignedOutCounts
+        {
+            get
+            {
+                return from bso in db.BookSignedOut
+                       where bso.WhenReturned == null
+                       group bso by bso.LibraryBookSid into checkOuts
+                       select new LibraryBookSignedOutCount
+                       {
+                           LibraryBookSId = checkOuts.Key,
+                           Count = checkOuts.Count()
+                       };
+            }
+        }
+
+        private class LibraryBookSignedOutCount
+        {
+            public int LibraryBookSId;
+
+            public int? Count;
         }
     }
 }

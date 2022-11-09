@@ -1,6 +1,6 @@
 import { BooksService } from '../../services/books.service';
 import { forkJoin, throwError, Subscription } from 'rxjs';
-import { map, catchError, tap, take } from 'rxjs/operators';
+import { map, catchError, tap, take, concatMap } from 'rxjs/operators';
 import { Book } from '../../shared/book';
 import { Component, OnInit, HostBinding } from '@angular/core';
 import { ActivatedRoute, ParamMap } from '@angular/router';
@@ -100,22 +100,27 @@ export class BookDetailsComponent implements OnInit {
         this.numBooksSignedOut = signedOutBooks.length;
         this.numBooksAvailable = numberOfAvailableCopies;
         this.numOfThisBookSignedOutByUser = filter(signedOutBooks, (signedOutBook) => signedOutBook.bookId === book.bookId).length;
-        const isbn = book.isbn;
-        this.books.getBookMetaData(isbn)
-          .pipe(take(1))
-          .subscribe((bookMetadata: GoogleBooksMetadata) => {
-            this.bookMetadata = bookMetadata;
-          });
+        this.numBooksSignedOut = signedOutBooks.length;
       }),
       map(([book, numberOfAvailableCopies, signedOutBooks]) => {
         const areBooksAvailable = numberOfAvailableCopies > 0;
         const hasUserCheckedThisBookOut = !!find(signedOutBooks, { bookId: book.bookId });
         return { ...book, isAvailable: areBooksAvailable, isCheckedOut: hasUserCheckedThisBookOut };
       }),
+      tap((book) => {
+        this.book = book;
+      }),
+      concatMap((book: Book) => {
+        return this.books.getBookMetaData(book.isbn);
+      }),
+      take(1),
+      tap((bookMetadata: GoogleBooksMetadata) => {
+        this.bookMetadata = bookMetadata;
+      }),
       catchError(err => {
         return throwError(err);
       })
-    );
+    ).subscribe();
   }
 
 }
