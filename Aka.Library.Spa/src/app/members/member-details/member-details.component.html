@@ -45,9 +45,9 @@
       </ng-template>      
     </mat-tab>
     <mat-tab label="Sign Out History">
-      <div *ngIf="bookhistory$ | async as bookhistory">
-        <app-member-book-list member-books="bookhistory"></app-member-book-list>
-      </div>
+      <ng-template matTabContent>
+        <app-checked-out-books-history></app-checked-out-books-history>
+      </ng-template>      
     </mat-tab>
   </mat-tab-group>
 </section>
