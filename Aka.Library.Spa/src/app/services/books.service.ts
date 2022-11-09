@@ -4,7 +4,7 @@ import { Book } from '../shared/book';
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { SignedOutBook } from '../shared/signed-out-book';
-import { map } from 'rxjs/operators';
+import { map, take } from 'rxjs/operators';
 import { GoogleBooksMetadata } from '../shared/google-books-metadata';
 import { Observable } from 'rxjs/internal/Observable';
 import { throwError } from 'rxjs/internal/observable/throwError';
@@ -25,7 +25,7 @@ export class BooksService {
     const url = `${this.apiUrl}${libraryId}/books`;
     return this.http.get<LibraryBook[]>(url)
       .pipe(
-        map(items => items.map(item => item.book))         
+        map(items => items.map(item => item.book))
       );
   }
 
@@ -66,7 +66,7 @@ export class BooksService {
    * @returns {Observable<number>}
    * @memberof BooksService
    */
-  getNumberOfAvailableBookCopies(libraryId: number, bookId: number): Observable<number> {  
+  getNumberOfAvailableBookCopies(libraryId: number, bookId: number): Observable<number> {
     const url = `${this.apiUrl}${libraryId}/books/${bookId}/countavailable`;
     return this.http.get<number>(url);
   }
@@ -90,12 +90,35 @@ export class BooksService {
    * @memberof BooksService
    */
   getBookMetaData(isbn: string): Observable<GoogleBooksMetadata> {
-    // TODO: Add implementation
-    const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&key=${this.googleBooksAPIKey}`;
 
-    // return this.http.get(url);
-    return throwError('Funtion not implemented');
+    // according to https://www.isbn-international.org/content/what-isbn, ISBN values are always numeric only
+    //  for the parts that matter
+    // api apparently needs isbn numbers in a 'packed' format - i.e. just numbers, no dashes, spaces, etc.
 
+    // normalize, in case we're passed a null/undefined value, and strip out non-numerics
+    isbn = (isbn || "").replace(/\D/g, '');
+
+    if (!isbn) {
+      // can't do a lookup without a potentially valid isbn (has to contain some numbers)
+      return of(null);
+    }    
+
+    const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&maxResults=1&projection=lite&key=${this.googleBooksAPIKey}`;
+
+    return this.http.get<GoogleBooksSearchResult>(url)
+      .pipe(
+        take(1),
+        map(result => result.items ? result.items[0].volumeInfo : null)
+      );
   }
-
 }
+
+interface GoogleBooksSearchResultItem {
+  id: string,
+  volumeInfo: GoogleBooksMetadata
+};
+
+interface GoogleBooksSearchResult {
+  items: GoogleBooksSearchResultItem[]
+};
+
